@@ -21,9 +21,10 @@ st.markdown("### Detect if voice is Real (Human) or Fake (AI-Generated)")
 st.sidebar.header("📊 Model Information")
 st.sidebar.info("""
 **Model Performance:**
-- Accuracy: 91.4%
-- Equal Error Rate: 8.2%
-- Training Samples: 3,000+
+- Accuracy: 96.5%
+- Precision (Real): 95%
+- Precision (Fake): 97%
+- Training Samples: 3,000
 - Features: MFCC, Spectral, Chroma
 """)
 
@@ -35,8 +36,30 @@ st.sidebar.markdown("""
 
 **Supported formats:**
 - WAV, MP3, FLAC
-- Any duration (auto-processed)
-- Recommended: 16kHz sampling rate
+- Duration: 1-10 seconds recommended
+- Sample rate: 16kHz preferred
+""")
+
+st.sidebar.warning("""
+⚠️ **IMPORTANT - Speech Only!**
+
+This system is trained ONLY for **human speech detection**.
+
+✅ **DO Upload:**
+- Voice recordings
+- Phone calls
+- Voice messages
+- Interviews
+- Podcasts (speech only)
+- Spoken audio
+
+❌ **DON'T Upload:**
+- Music/Songs
+- Instrumental audio
+- Audio with background music
+- Mixed audio (speech + music)
+
+**For best results:** Use clear speech recordings without background noise or music.
 """)
 
 # Main content
@@ -45,11 +68,13 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.header("🎵 Upload Audio File")
     
+    st.warning("⚠️ **SPEECH/VOICE ONLY** - Do NOT upload music or songs!")
+    
     # File uploader
     uploaded_file = st.file_uploader(
-        "Choose an audio file",
+        "Choose an audio file (Speech only)",
         type=['wav', 'mp3', 'flac'],
-        help="Upload WAV, MP3, or FLAC audio files"
+        help="Upload WAV, MP3, or FLAC files containing SPEECH only"
     )
     
     if uploaded_file is not None:
@@ -84,7 +109,21 @@ with col1:
                     
                     # Display results
                     if 'error' in result:
-                        st.error(f"❌ Error: {result['error']}")
+                        # Check if music/song error
+                        if 'Music' in result['error'] or 'SPEECH' in result['error']:
+                            st.warning("🎵 **Music/Song Detected!**")
+                            st.error(result['error'])
+                            st.info("""
+                            💡 **What to do:**
+                            - Record a voice message (10-15 seconds)
+                            - Use podcast clips (speech only)
+                            - Extract speech from videos
+                            - Use interview recordings
+                            
+                            **Avoid:** Songs, instrumental music, or mixed audio
+                            """)
+                        else:
+                            st.error(f"❌ Error: {result['error']}")
                     else:
                         # Results section
                         st.header("📊 Analysis Results")
@@ -149,33 +188,73 @@ with col2:
     **✅ Real Voice (Bonafide):**
     - Natural human speech
     - Recorded with microphones
-    - Authentic audio content
+    - Authentic voice recordings
+    - Live conversations
     
     **❌ Fake Voice (Synthetic):**
     - Text-to-speech generated
     - Voice cloning/deepfakes
-    - AI-generated audio
+    - AI-generated speech
+    - Synthetic voices
     
     **🎯 Use Cases:**
-    - Social media verification
-    - News authenticity check
-    - Security applications
-    - Legal evidence verification
+    - Voice message verification
+    - Podcast authenticity check
+    - Phone call security
+    - Deepfake detection
+    - Audio forensics
     """)
     
     st.header("🔧 Technical Details")
     st.markdown("""
     **Model:** XGBoost Classifier
-    **Features:** 47-dimensional vector
-    - MFCC coefficients
-    - Spectral features
-    - Chroma features
-    - Spectral contrast
     
-    **Dataset:** ASVspoof 2019
-    **Processing Time:** ~1 second
+    **Features:** 67-dimensional vector
+    - 20 MFCC coefficients (mean + std)
+    - Spectral centroid, rolloff, bandwidth
+    - Zero crossing rate
+    - 12 Chroma features
+    - 7 Spectral contrast features
+    
+    **Training:**
+    - Dataset: ASVspoof 2019 LA
+    - Samples: 3,000 (balanced subset)
+    - Validation Accuracy: 96.5%
+    
+    **Processing:**
+    - Audio duration: 4 seconds (auto-trimmed)
+    - Sample rate: 16kHz
+    - Processing time: ~2 seconds
+    
+    **Limitations:**
+    - Works only with speech/voice
+    - May not detect very advanced deepfakes
+    - Requires clear audio quality
+    """)
+    
+    st.header("📚 Examples")
+    st.markdown("""
+    **✅ Good Examples:**
+    - "Hello, this is a test message"
+    - Voice notes from WhatsApp
+    - Podcast clips (no music)
+    - Interview recordings
+    
+    **❌ Bad Examples:**
+    - Songs with lyrics
+    - Music videos
+    - Audio with background music
+    - Instrumental tracks
     """)
 
 # Footer
 st.markdown("---")
-st.markdown("🚀 **Synthetic Speech Detection System** | Built with Streamlit & Machine Learning")
+st.markdown("""
+<div style='text-align: center'>
+    <p>🚀 <strong>Synthetic Speech Detection System</strong></p>
+    <p>Built with Streamlit, XGBoost & ASVspoof 2019 Dataset</p>
+    <p style='font-size: 0.8em; color: gray;'>
+        Model Accuracy: 96.5% | Features: 67D | Training: 3K samples
+    </p>
+</div>
+""", unsafe_allow_html=True)
