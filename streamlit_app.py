@@ -1,95 +1,141 @@
 import streamlit as st
-import librosa
-import numpy as np
-import joblib
 import tempfile
 import os
 from synthetic_speech_detector import SyntheticSpeechDetector
 
-# Page config
+# Page Configuration
 st.set_page_config(
-    page_title="Voice Detection System",
+    page_title="ASVspoof Speech Detection",
     page_icon="🎤",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Title
-st.title("🎤 Synthetic Speech Detection System")
-st.markdown("### Detect if voice is Real (Human) or Fake (AI-Generated)")
+# Custom CSS
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+    .sub-header {
+        font-size: 1.2rem;
+        color: #666;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .info-box {
+        padding: 1rem;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Header
+st.markdown('<p class="main-header">🎤 ASVspoof Synthetic Speech Detection</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Detect Real Human Voice vs AI-Generated Deepfake Audio</p>', unsafe_allow_html=True)
 
 # Sidebar
-st.sidebar.header("📊 Model Information")
-st.sidebar.info("""
-**Model Performance:**
-- Accuracy: 96.5%
-- Precision (Real): 95%
-- Precision (Fake): 97%
-- Training Samples: 3,000
-- Features: MFCC, Spectral, Chroma
-""")
+with st.sidebar:
+    st.header("📊 Model Information")
+    
+    st.info("""
+    **Performance Metrics:**
+    - ✅ Accuracy: 96.5%
+    - ✅ Precision (Real): 95%
+    - ✅ Precision (Fake): 97%
+    - ✅ Training Samples: 3,000
+    - ✅ Feature Dimensions: 67
+    """)
+    
+    st.header("📝 How to Use")
+    st.markdown("""
+    1. **Upload** an audio file (WAV/MP3/FLAC)
+    2. **Click** 'Analyze Voice' button
+    3. **Get** instant detection results
+    
+    **Best Results:**
+    - Clear speech recordings
+    - 3-10 seconds duration
+    - Minimal background noise
+    - 16kHz sample rate (preferred)
+    """)
+    
+    st.header("⚠️ Important Notes")
+    st.warning("""
+    **This system works ONLY with SPEECH:**
+    
+    ✅ **Supported:**
+    - Voice recordings
+    - Phone calls
+    - Interviews
+    - Podcasts (speech only)
+    - Voice messages
+    
+    ❌ **NOT Supported:**
+    - Music/Songs
+    - Instrumental audio
+    - Mixed audio (speech + music)
+    """)
+    
+    st.header("🔧 Technical Details")
+    with st.expander("Show Details"):
+        st.markdown("""
+        **Model:** XGBoost Classifier
+        
+        **Features (67D):**
+        - MFCC: 40 features
+        - Spectral: 6 features
+        - Zero Crossing Rate: 2 features
+        - Chroma: 12 features
+        - Spectral Contrast: 7 features
+        
+        **Dataset:** ASVspoof 2019 LA
+        
+        **Processing:**
+        - Audio length: 4 seconds
+        - Sample rate: 16kHz
+        - Processing time: ~2 seconds
+        """)
 
-st.sidebar.header("📝 Instructions")
-st.sidebar.markdown("""
-1. Upload an audio file (WAV, MP3, FLAC)
-2. Click 'Analyze Voice'
-3. Get instant results!
-
-**Supported formats:**
-- WAV, MP3, FLAC
-- Duration: 1-10 seconds recommended
-- Sample rate: 16kHz preferred
-""")
-
-st.sidebar.warning("""
-⚠️ **IMPORTANT - Speech Only!**
-
-This system is trained ONLY for **human speech detection**.
-
-✅ **DO Upload:**
-- Voice recordings
-- Phone calls
-- Voice messages
-- Interviews
-- Podcasts (speech only)
-- Spoken audio
-
-❌ **DON'T Upload:**
-- Music/Songs
-- Instrumental audio
-- Audio with background music
-- Mixed audio (speech + music)
-
-**For best results:** Use clear speech recordings without background noise or music.
-""")
-
-# Main content
+# Main Content Area
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.header("🎵 Upload Audio File")
     
-    st.warning("⚠️ **SPEECH/VOICE ONLY** - Do NOT upload music or songs!")
+    # Warning banner
+    st.warning("⚠️ **SPEECH ONLY** - Do not upload music or songs!")
     
     # File uploader
     uploaded_file = st.file_uploader(
-        "Choose an audio file (Speech only)",
-        type=['wav', 'mp3', 'flac'],
-        help="Upload WAV, MP3, or FLAC files containing SPEECH only"
+        "Choose an audio file containing speech",
+        type=['wav', 'mp3', 'flac', 'm4a'],
+        help="Supported formats: WAV, MP3, FLAC, M4A"
     )
     
     if uploaded_file is not None:
-        # Display file info
-        st.success(f"✅ File uploaded: {uploaded_file.name}")
-        st.info(f"File size: {uploaded_file.size / 1024:.1f} KB")
+        # File information
+        st.success(f"✅ File uploaded: **{uploaded_file.name}**")
+        
+        col_info1, col_info2 = st.columns(2)
+        with col_info1:
+            st.metric("File Size", f"{uploaded_file.size / 1024:.1f} KB")
+        with col_info2:
+            st.metric("Format", uploaded_file.type.split('/')[-1].upper())
         
         # Audio player
-        st.audio(uploaded_file, format='audio/wav')
+        st.audio(uploaded_file, format=uploaded_file.type)
         
         # Analyze button
-        if st.button("🔍 Analyze Voice", type="primary"):
+        if st.button("🔍 Analyze Voice", type="primary", use_container_width=True):
             with st.spinner("🔄 Analyzing audio... Please wait"):
                 try:
-                    # Save uploaded file temporarily
+                    # Save temporary file
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
                         tmp_file.write(uploaded_file.getvalue())
                         tmp_path = tmp_file.name
@@ -109,152 +155,194 @@ with col1:
                     
                     # Display results
                     if 'error' in result:
-                        # Check if music/song error
-                        if 'Music' in result['error'] or 'SPEECH' in result['error']:
-                            st.warning("🎵 **Music/Song Detected!**")
-                            st.error(result['error'])
-                            st.info("""
-                            💡 **What to do:**
-                            - Record a voice message (10-15 seconds)
-                            - Use podcast clips (speech only)
-                            - Extract speech from videos
-                            - Use interview recordings
-                            
-                            **Avoid:** Songs, instrumental music, or mixed audio
-                            """)
-                        else:
-                            st.error(f"❌ Error: {result['error']}")
+                        st.error(f"❌ **Error:** {result['error']}")
+                        st.info("""
+                        💡 **Troubleshooting:**
+                        - Ensure audio contains clear speech
+                        - Try recording a short voice message
+                        - Check file is not corrupted
+                        - Avoid music or background noise
+                        """)
                     else:
-                        # Results section
-                        st.header("📊 Analysis Results")
+                        # Results Header
+                        st.markdown("---")
+                        st.header("📊 Detection Results")
                         
-                        # Main result
+                        # Main Result Card
                         if result['prediction'] == 'Bonafide':
-                            st.success("✅ **REAL VOICE** - Human Speech Detected")
+                            st.success("### ✅ REAL VOICE DETECTED")
+                            st.markdown("**This audio appears to be authentic human speech.**")
                             st.balloons()
                         else:
-                            st.error("❌ **FAKE VOICE** - AI-Generated Speech Detected")
+                            st.error("### ❌ FAKE VOICE DETECTED")
+                            st.markdown("**This audio appears to be AI-generated or synthetic.**")
+                        
+                        st.markdown("---")
                         
                         # Metrics
-                        col_a, col_b, col_c = st.columns(3)
+                        metric_col1, metric_col2, metric_col3 = st.columns(3)
                         
-                        with col_a:
+                        with metric_col1:
                             st.metric(
-                                "Confidence",
-                                f"{result['confidence']:.1%}",
-                                delta=None
+                                label="🎯 Confidence",
+                                value=f"{result['confidence']:.1%}",
+                                help="Model's confidence in the prediction"
                             )
                         
-                        with col_b:
+                        with metric_col2:
                             st.metric(
-                                "Real Voice Probability",
-                                f"{result['bonafide_probability']:.3f}",
-                                delta=None
+                                label="✅ Real Voice",
+                                value=f"{result['bonafide_probability']:.1%}",
+                                help="Probability of being real human voice"
                             )
                         
-                        with col_c:
+                        with metric_col3:
                             st.metric(
-                                "Fake Voice Probability", 
-                                f"{result['synthetic_probability']:.3f}",
-                                delta=None
+                                label="❌ Fake Voice",
+                                value=f"{result['synthetic_probability']:.1%}",
+                                help="Probability of being AI-generated"
                             )
                         
-                        # Confidence level
+                        # Reliability Assessment
                         confidence = result['confidence']
-                        if confidence > 0.9:
+                        if confidence > 0.95:
                             reliability = "Very High 🟢"
-                        elif confidence > 0.8:
+                            reliability_color = "green"
+                        elif confidence > 0.85:
                             reliability = "High 🟡"
-                        elif confidence > 0.7:
-                            reliability = "Good 🟠"
+                            reliability_color = "orange"
+                        elif confidence > 0.75:
+                            reliability = "Moderate 🟠"
+                            reliability_color = "orange"
                         else:
-                            reliability = "Moderate 🔴"
+                            reliability = "Low 🔴"
+                            reliability_color = "red"
                         
                         st.info(f"🔒 **Reliability Level:** {reliability}")
                         
-                        # Progress bar
+                        # Probability Visualization
                         st.subheader("📈 Probability Breakdown")
-                        st.progress(result['bonafide_probability'], text=f"Real Voice: {result['bonafide_probability']:.1%}")
-                        st.progress(result['synthetic_probability'], text=f"Fake Voice: {result['synthetic_probability']:.1%}")
+                        
+                        col_prob1, col_prob2 = st.columns(2)
+                        
+                        with col_prob1:
+                            st.markdown("**Real Voice (Bonafide)**")
+                            st.progress(
+                                result['bonafide_probability'],
+                                text=f"{result['bonafide_probability']:.1%}"
+                            )
+                        
+                        with col_prob2:
+                            st.markdown("**Fake Voice (Synthetic)**")
+                            st.progress(
+                                result['synthetic_probability'],
+                                text=f"{result['synthetic_probability']:.1%}"
+                            )
+                        
+                        # Interpretation
+                        st.markdown("---")
+                        st.subheader("🧠 Interpretation")
+                        
+                        if result['prediction'] == 'Bonafide':
+                            if result['bonafide_probability'] > 0.9:
+                                st.success("""
+                                **Strong Indication of Real Voice:**
+                                The audio exhibits characteristics typical of authentic human speech,
+                                including natural variations, breathing patterns, and vocal qualities.
+                                """)
+                            else:
+                                st.warning("""
+                                **Likely Real Voice (with some uncertainty):**
+                                The audio mostly appears authentic, but some features are ambiguous.
+                                Consider the source and context for final verification.
+                                """)
+                        else:
+                            if result['synthetic_probability'] > 0.9:
+                                st.error("""
+                                **Strong Indication of AI-Generated Voice:**
+                                The audio shows characteristics typical of synthetic speech, such as
+                                unnatural patterns, robotic qualities, or text-to-speech artifacts.
+                                """)
+                            else:
+                                st.warning("""
+                                **Possibly Fake Voice (with some uncertainty):**
+                                The audio has some synthetic characteristics, but results are not conclusive.
+                                Manual verification recommended.
+                                """)
                 
                 except Exception as e:
-                    st.error(f"❌ Error processing audio: {str(e)}")
+                    st.error(f"❌ **Processing Error:** {str(e)}")
+                    st.info("Please try uploading a different file or contact support.")
 
 with col2:
-    st.header("ℹ️ About")
+    st.header("ℹ️ About This System")
+    
     st.markdown("""
-    This AI system can detect:
+    This AI-powered system uses advanced machine learning to distinguish between:
     
     **✅ Real Voice (Bonafide):**
     - Natural human speech
-    - Recorded with microphones
-    - Authentic voice recordings
-    - Live conversations
+    - Recorded conversations
+    - Live voice recordings
+    - Authentic audio
     
     **❌ Fake Voice (Synthetic):**
-    - Text-to-speech generated
-    - Voice cloning/deepfakes
+    - Text-to-speech (TTS)
+    - Voice cloning
+    - Deepfake audio
     - AI-generated speech
-    - Synthetic voices
-    
-    **🎯 Use Cases:**
-    - Voice message verification
-    - Podcast authenticity check
-    - Phone call security
-    - Deepfake detection
-    - Audio forensics
     """)
     
-    st.header("🔧 Technical Details")
+    st.header("🎯 Use Cases")
     st.markdown("""
-    **Model:** XGBoost Classifier
-    
-    **Features:** 67-dimensional vector
-    - 20 MFCC coefficients (mean + std)
-    - Spectral centroid, rolloff, bandwidth
-    - Zero crossing rate
-    - 12 Chroma features
-    - 7 Spectral contrast features
-    
-    **Training:**
-    - Dataset: ASVspoof 2019 LA
-    - Samples: 3,000 (balanced subset)
-    - Validation Accuracy: 96.5%
-    
-    **Processing:**
-    - Audio duration: 4 seconds (auto-trimmed)
-    - Sample rate: 16kHz
-    - Processing time: ~2 seconds
-    
-    **Limitations:**
-    - Works only with speech/voice
-    - May not detect very advanced deepfakes
-    - Requires clear audio quality
+    - 🔒 **Security:** Verify caller identity
+    - 📱 **Social Media:** Detect deepfakes
+    - 📰 **Journalism:** Authenticate sources
+    - ⚖️ **Legal:** Audio evidence verification
+    - 🎙️ **Media:** Content authenticity check
     """)
     
     st.header("📚 Examples")
-    st.markdown("""
-    **✅ Good Examples:**
-    - "Hello, this is a test message"
-    - Voice notes from WhatsApp
-    - Podcast clips (no music)
-    - Interview recordings
     
-    **❌ Bad Examples:**
-    - Songs with lyrics
-    - Music videos
-    - Audio with background music
-    - Instrumental tracks
+    with st.expander("✅ Good Audio Examples"):
+        st.markdown("""
+        - Phone call recordings
+        - Voice messages (WhatsApp, etc.)
+        - Podcast clips (speech only)
+        - Interview recordings
+        - "Hello, this is a test message"
+        - Meeting recordings
+        """)
+    
+    with st.expander("❌ Avoid These"):
+        st.markdown("""
+        - Songs or music tracks
+        - Instrumental audio
+        - Audio with heavy background music
+        - Very noisy recordings
+        - Extremely short clips (< 1 second)
+        """)
+    
+    st.header("⚠️ Limitations")
+    st.markdown("""
+    - Works best with clear speech
+    - May struggle with advanced deepfakes
+    - Requires good audio quality
+    - Not 100% accurate
+    - Should not be sole verification method
     """)
 
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style='text-align: center'>
-    <p>🚀 <strong>Synthetic Speech Detection System</strong></p>
-    <p>Built with Streamlit, XGBoost & ASVspoof 2019 Dataset</p>
-    <p style='font-size: 0.8em; color: gray;'>
-        Model Accuracy: 96.5% | Features: 67D | Training: 3K samples
+<div style='text-align: center; color: #666;'>
+    <p><strong>🚀 ASVspoof 2019 Synthetic Speech Detection System</strong></p>
+    <p>Powered by XGBoost | Trained on ASVspoof 2019 LA Dataset</p>
+    <p style='font-size: 0.9em;'>
+        Model Accuracy: 96.5% | Feature Dimensions: 67 | Training Samples: 3,000
+    </p>
+    <p style='font-size: 0.8em; margin-top: 1rem;'>
+        ⚠️ For research and educational purposes. Not for critical security decisions without additional verification.
     </p>
 </div>
 """, unsafe_allow_html=True)
