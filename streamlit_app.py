@@ -68,6 +68,20 @@ with st.sidebar:
     ❌ Music/Songs
     ❌ Instrumental audio
     """)
+    
+    st.header("🔧 Model Notes")
+    st.info("""
+    **Threshold:** 0.85 (Balanced)
+    
+    This model may flag some real voices 
+    as fake due to:
+    - Different accents
+    - Recording devices
+    - Audio quality variations
+    
+    Use results as guidance, not 
+    absolute truth.
+    """)
 
 # Main Area
 col1, col2 = st.columns([2, 1])
@@ -101,13 +115,13 @@ with col1:
                         tmp.write(uploaded_file.getvalue())
                         tmp_path = tmp.name
                     
-                    # Load detector
+                    # Load detector with threshold
                     @st.cache_resource
                     def load_detector():
                         return SyntheticSpeechDetector(
                             'xgboost_model_final.pkl',
                             'scaler_final.pkl',
-                            threshold=0.85
+                            threshold=0.85  # ← Balanced threshold
                         )
                     
                     detector = load_detector()
@@ -141,6 +155,9 @@ with col1:
                         with m3:
                             st.metric("❌ Fake", f"{result['synthetic_probability']:.1%}")
                         
+                        # Show threshold info
+                        st.caption(f"Decision threshold: {result.get('threshold', 0.85)}")
+                        
                         # Reliability
                         conf = result['confidence']
                         if conf > 0.95:
@@ -156,10 +173,14 @@ with col1:
                         
                         # Probabilities
                         st.subheader("📈 Breakdown")
-                        st.progress(result['bonafide_probability'], 
-                                  text=f"Real: {result['bonafide_probability']:.1%}")
-                        st.progress(result['synthetic_probability'],
-                                  text=f"Fake: {result['synthetic_probability']:.1%}")
+                        st.progress(
+                            result['bonafide_probability'], 
+                            text=f"Real: {result['bonafide_probability']:.1%}"
+                        )
+                        st.progress(
+                            result['synthetic_probability'],
+                            text=f"Fake: {result['synthetic_probability']:.1%}"
+                        )
                         
                         # Interpretation
                         st.markdown("---")
@@ -224,6 +245,12 @@ with col2:
     - Not 100% accurate
     - Advanced deepfakes may fool it
     - Combine with other verification
+    
+    **May incorrectly flag:**
+    - Non-English accents
+    - Different devices
+    - VoIP calls
+    - Compressed audio
     """)
 
 # Footer
@@ -231,7 +258,7 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666;'>
     <p><strong>ASVspoof 2019 Synthetic Speech Detection</strong></p>
-    <p>XGBoost Model | 67 Features | Regularized Training</p>
+    <p>XGBoost Model | 67 Features | Threshold: 0.85</p>
     <p style='font-size: 0.8em;'>⚠️ For research/education. Not for sole security decisions.</p>
 </div>
 """, unsafe_allow_html=True)
