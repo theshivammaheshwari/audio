@@ -106,7 +106,7 @@ with col1:
                     def load_detector():
                         return SyntheticSpeechDetector(
                             'xgboost_model_final.pkl',
-                            'scaler_final.pkl'
+                            'scaler_final.pkl',
                             threshold=0.85
                         )
                     
